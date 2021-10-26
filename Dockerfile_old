@@ -1,0 +1,70 @@
+FROM alpine:latest
+MAINTAINER Fernando Cristovao <fernando.cristovao@perbras.com.br>
+
+# Cria as variáveis de ambiente
+ENV JAVA_HOME /opt/jdk
+ENV PATH ${PATH}:${JAVA_HOME}/bin
+ENV JAVA_PACKAGE server-jre
+ENV JAVA_OPTS "-Xss64M -XX:+CMSClassUnloadingEnabled -XX:+CMSPermGenSweepingEnabled -Dcom.sun.management.jmxremote=true -Duser.language=pt -Duser.country=BR"
+
+ENV TOMCAT_VERSION_MAJOR 8
+ENV TOMCAT_VERSION_FULL  8.5.14
+ENV CATALINA_HOME /opt/tomcat
+
+# Instala o Java
+RUN apk --update add openjdk8-jre &&\
+    mkdir -p /opt/jdk &&\
+    ln -s /usr/lib/jvm/java-1.8-openjdk/bin /opt/jdk
+
+# Instala o Tomcat
+RUN apk add --update curl &&\
+  curl -LO https://archive.apache.org/dist/tomcat/tomcat-${TOMCAT_VERSION_MAJOR}/v${TOMCAT_VERSION_FULL}/bin/apache-tomcat-${TOMCAT_VERSION_FULL}.tar.gz &&\
+  curl -LO https://archive.apache.org/dist/tomcat/tomcat-${TOMCAT_VERSION_MAJOR}/v${TOMCAT_VERSION_FULL}/bin/apache-tomcat-${TOMCAT_VERSION_FULL}.tar.gz.md5 &&\
+  md5sum -c apache-tomcat-${TOMCAT_VERSION_FULL}.tar.gz.md5 &&\
+  gunzip -c apache-tomcat-${TOMCAT_VERSION_FULL}.tar.gz | tar -xf - -C /opt &&\
+  rm -f apache-tomcat-${TOMCAT_VERSION_FULL}.tar.gz apache-tomcat-${TOMCAT_VERSION_FULL}.tar.gz.md5 &&\
+  ln -s /opt/apache-tomcat-${TOMCAT_VERSION_FULL} /opt/tomcat &&\
+  rm -rf /opt/tomcat/webapps/examples /opt/tomcat/webapps/docs &&\
+  apk del curl &&\
+  rm -rf /var/cache/apk/*
+
+
+# Retira ROOT padrão
+RUN rm -rf /opt/tomcat/webapps
+
+# Copia o Webrun para a pasta do Tomcat
+COPY ["deploy/webapps", "/opt/tomcat/webapps"]
+
+
+# Cria pasta do Webrun no Home
+RUN mkdir -p /opt/softwell &&\
+    mkdir -p /opt/softwell/config &&\
+    mkdir -p /opt/softwell/reports &&\
+    mkdir -p /opt/softwell/systems
+
+
+# Copia pasta config
+COPY ["deploy/config", "/opt/softwell/config"]
+
+# Copia pasta reports
+COPY ["deploy/reports", "/opt/softwell/reports"]
+
+# Copia pasta systems
+COPY ["deploy/systems", "/opt/softwell/systems"]
+
+# Copia pasta de configurações do Tomcat
+#RUN rm -rf /opt/tomcat/conf
+#COPY ["deploy/tomcat/conf", "/opt/tomcat/conf"]
+
+# Copia webrun.ini
+COPY ["deploy/webrun.ini", "/usr/lib/webrun.ini"]
+
+# Cria pasta storage para upload
+RUN mkdir /opt/softwell/storage
+
+COPY ["deploy/storage", "/opt/softwell/storage"]
+
+# Roda o tomcat
+#CMD ${CATALINA_HOME}/bin/catalina.sh run
+
+RUN /bin/sh

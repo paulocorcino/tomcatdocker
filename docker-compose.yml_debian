@@ -1,0 +1,35 @@
+version: '3.6'
+services:
+  webrun:
+    image: webrun/tomcat85:latest   
+    build: .
+    environment:
+      - ENV TZ=America/Bahia
+    ports:
+      - "8080:8080"
+    volumes:
+       # Webrun - Arquivos      
+      - ./deploy/reports:/usr/local/webrun/reports
+      - ./deploy/config:/usr/local/webrun/config
+      - ./deploy/systems:/usr/local/webrun/systems
+
+       # Tomcat - Configuracoes
+      - ./deploy/storage:/usr/local/tomcat/storage
+      - ./deploy/tomcat/conf:/usr/local/tomcat/conf
+      - ./deploy/tomcat/logs:/usr/local/tomcat/logs
+      - ./deploy/webapps/ROOT.war:/usr/local/tomcat/webapps/ROOT.war
+     
+    command: /usr/local/tomcat/bin/catalina.sh run
+    #command: /bin/sh
+    
+    #deploy:
+    #  resources:
+    #    limits:
+    #      cpus: '0.001'
+    #      memory: 50M
+    #    reservations:
+    #      cpus: '0.0001'
+    #      memory: 20M
+    # rm -f /usr/local/tomcat/webapps/ROOT &&
+        
+    

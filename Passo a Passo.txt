@@ -1,0 +1,21 @@
+Criando imagem 
+
+docker build .
+docker build -t mywebapp .
+ 
+ 
+ Successfully built 829a47015b1b
+Successfully tagged webrun:latest
+
+docker image ls
+
+
+docker logs --tail 1000 7cf8d7fad93a
+
+
+ docker ps -qa | xargs docker rm
+ docker network prune
+ docker rm -f $(docker ps -aq)
+ 
+ 
+ docker-compose down && docker-compose build && docker-compose up
