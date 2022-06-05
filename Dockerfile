@@ -1,5 +1,5 @@
 FROM alpine:latest
-LABEL PROJECT="webrun/tomcat85"  \
+LABEL PROJECT="webrun/tomcat9"  \
       VERSION="1.0"              \
       AUTHOR="Paulo Corcino"     \
       COMPANY="www.corcino.com.br"
@@ -15,16 +15,18 @@ ENV WEBRUN /opt/webrun
 
 # Cria as variáveis de ambiente
 # ENV ENCODING ISO-8859-1
-ENV ENCODING UTF-8
+ENV ENCODING ISO-8859-1
 ENV JAVA_HOME /opt/jdk
 ENV PATH ${PATH}:${JAVA_HOME}/bin
 ENV JAVA_PACKAGE server-jre
-ENV JAVA_OPTS "-Xss64M -Dsun.jnu.encoding=${ENCODING} -Dfile.encoding=${ENCODING} -XX:+CMSClassUnloadingEnabled -Dcom.sun.management.jmxremote=true -Duser.language=pt -Duser.country=BR -Duser.timezone=America/Bahia"
-
+ENV JAVA_OPTS "-XX:+UseG1GC -XX:+OptimizeStringConcat -XX:+UseStringDeduplication -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=${CATALINA_HOME}/logs -XX:SurvivorRatio=128 -Dcom.sun.management.jmxremote=true -Duser.language=pt -Duser.country=BR -Duser.region=BR -Duser.timezone=America/Bahia  -Djava.net.preferIPv4Stack=true -Djava.net.preferIPv4Addresses=true -Dsun.jnu.encoding=${ENCODING} -Dfile.encoding=${ENCODING} -Dcom.sun.management.jmxremote.port=18080 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false"
+ 
 ENV TOMCAT_VERSION_MAJOR 9
-ENV TOMCAT_VERSION_FULL  9.0.31
+ENV TOMCAT_VERSION_FULL  9.0.46
 ENV CATALINA_HOME /opt/tomcat
 
+# Expose Web Port
+EXPOSE 8080 8443 18080
  
 # Fernando Cristovao <fernando.cristovao@perbras.com.br>
 
@@ -142,11 +144,31 @@ RUN apk del .deps-jav .fetch-deps .native-build-deps .native-build-deps
 RUN rm -rf /var/cache/apk/*
   
  # Retira ROOT padrão
-RUN rm -rf ${CATALINA_HOME}/webapps
+ # Retira ROOT padrão
+RUN rm -rf ${CATALINA_HOME}/webapps &&\
+	mkdir -p ${CATALINA_HOME}/webapps
+
+RUN sed -i '$i<Resources cachingAllowed="true" cacheMaxSize="100000" />'  ${CATALINA_HOME}/conf/context.xml 
 	
 # FIM SCRIPT PADRAO
 
 # DEFINICOES WEBRUN ########################################
+
+# INSTALL HTMLTOPDF
+RUN apk add --update --no-cache \
+    libgcc libstdc++ libx11 glib libxrender libxext libintl \
+    ttf-dejavu ttf-droid ttf-freefont ttf-liberation
+
+# On alpine static compiled patched qt headless wkhtmltopdf (46.8 MB).
+# Compilation took place in Travis CI with auto push to Docker Hub see
+# BUILD_LOG env. Checksum is printed in line 13685.
+COPY --from=madnight/alpine-wkhtmltopdf-builder:0.12.5-alpine3.10-606718795 \
+    /bin/wkhtmltopdf /bin/wkhtmltopdf
+
+# COPY WEBRUN
+COPY ./webrun.war ${CATALINA_HOME}/webapps/webrun.war
+RUN unzip -o ${CATALINA_HOME}/webapps/webrun.war -d ${CATALINA_HOME}/webapps/webrun &&\
+    rm -f ${CATALINA_HOME}/webapps/webrun.war
 
 # PASTA WEBRUN
 RUN mkdir -p ${WEBRUN} &&\
@@ -160,4 +182,18 @@ RUN echo "[DIR]" >> /usr/lib/webrun.ini &&\
 
 #CRIA PASTA STORAGE
 RUN mkdir -p ${CATALINA_HOME}/storage &&\
-	chmod -R +rX ${CATALINA_HOME}/storage/;
+    mkdir -p ${CATALINA_HOME}/ssl &&\
+    chmod -R +rwX ${CATALINA_HOME}/storage/;
+
+#CRIA EXECUTE FILE
+RUN echo "#!/bin/sh" >> ${WEBRUN}/start.sh &&\
+    echo "mv ${CATALINA_HOME}/webapps/webrun ${CATALINA_HOME}/webapps/\$1" >> ${WEBRUN}/start.sh &&\
+    echo "mkdir ${WEBRUN}/systems/\$1"  >> ${WEBRUN}/start.sh &&\
+    echo "export JAVA_OPTS=\"\${JAVA_OPTS} -server -Xms\$2M -Xmx\$2M\"" >> ${WEBRUN}/start.sh &&\
+    echo "${CATALINA_HOME}/bin/catalina.sh run" >> ${WEBRUN}/start.sh
+    
+RUN chmod +x ${WEBRUN}/start.sh
+
+WORKDIR ${WEBRUN}
+
+

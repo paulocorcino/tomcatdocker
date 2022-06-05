@@ -1,35 +1,16 @@
-version: '3.6'
+version: "2"
 services:
-  webrun:
-    image: webrun/tomcat85:latest   
-    build: .
-    environment:
-      - ENV TZ=America/Bahia
-    ports:
-      - "8080:8080"
-    volumes:
-       # Webrun - Arquivos      
-      - ./deploy/reports:/opt/webrun/reports
-      - ./deploy/config:/opt/webrun/config
-      - ./deploy/systems:/opt/webrun/systems
-
-       # Tomcat - Configuracoes
-      - ./deploy/storage:/opt/tomcat/storage
-      - ./deploy/tomcat/conf:/usr/local/tomcat/conf
-      - ./deploy/tomcat/logs:/opt/tomcat/logs
-      - ./deploy/webapps/ROOT.war:/opt/tomcat/webapps/ROOT.war
-     
-    command: /opt/tomcat/bin/catalina.sh run
-    #command: /bin/sh
-    
-    # deploy:
-      # resources:
-        # limits:
-          # cpus: '0.001'
-          # memory: 50M
-        # reservations:
-          # cpus: '0.0001'
-          # memory: 20M
-    # rm -f /usr/local/tomcat/webapps/ROOT &&
-        
-    
+ tomcat:
+  image: "sc/webrun"
+  ports:
+   - 80:8080
+   - 443:8443
+  extra_hosts:
+   - "app.somos.chat:10.1.1.2"
+  volumes:
+   - /home/somoschat/config:/opt/webrun/config
+   - /home/somoschat/systems/somos:/opt/webrun/systems/somos
+   - /home/somoschat/config/server.xml:/opt/tomcat/conf/server.xml
+   - /home/somoschat/ssl:/opt/tomcat/ssl
+   - /home/somoschat/storage:/opt/tomcat/storage
+  command: ["./start.sh", "somos", "400"]
